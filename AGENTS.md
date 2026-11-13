@@ -21,7 +21,10 @@ src/
   package.rs            finds .mod/.mif/.bar under a path; Legacy (flat) or Modern (3.x) layout
   detect.rs             version and resolution detection, with confidence and evidence
   images.rs             finds PNG/BMP inside arbitrary bytes (for resolution detection)
-  lib.rs                LaunchConfig::resolve and the `describe` report
+  cpu/                  CpuBackend, region-based GuestMemory, Dynarmic backend (from zeebx-emu)
+  loader.rs             guest memory map, AEESTDLIB_VER detection
+  machine/              boot, API dispatch (helpers, IShell), timers, run Report
+  lib.rs                LaunchConfig::resolve, `run`, and the reports
 frontends/
   headless/             `brewx-headless`: command line, no window — the test target
   qt-standalone/        `brewx-qt`: Qt Quick interface (cxx-qt 0.10, Qt 6)
@@ -35,6 +38,10 @@ heap, objects, VFS and the save state format. The heap size is the host's choice
 (`layout::DEFAULT_HEAP_SIZE` is the Zeebo's 64 MiB). A fix there means publishing a new crate
 version; to develop alongside it, uncomment the `[patch.crates-io]` in `Cargo.toml` pointing at
 `../zeebx-core`.
+
+The CPU layer was ported from zeebx-emu and trimmed of Zeebo-specific optimizations (surface
+write watches, JIT timing). Boot, dispatch and the `roms/` results are in
+[`docs/runtime.md`](docs/runtime.md).
 
 `zeebx-core` was extracted from a BREW **4.0.2**: its interface tables and `.mif` parser reflect
 that version. Whatever changes between 1.x, 2.x, 3.x and 4.x lives **in this repository**,
@@ -50,7 +57,8 @@ cd roms && for f in *.rar; do mkdir -p "_extracted/${f%.rar}"; unrar x -o+ -inul
 ```
 
 brewx does not open `.rar` itself: the UnRAR license is not GPL-compatible. When changing a
-heuristic, run `brewx-headless info roms/_extracted` before and after and compare.
+heuristic, run `brewx-headless info roms/_extracted` before and after and compare; when changing
+dispatch, do the same with `run` — the stage counts and the backlog ranking must not regress.
 
 ## Rules
 
@@ -71,6 +79,8 @@ cargo test -p brewx                                   # library tests
 cargo build -p brewx-headless                         # CLI
 ./target/debug/brewx-headless info roms/_extracted    # inspect and show detection
 ./target/debug/brewx-headless info <path> --brew-version 2.1 --resolution 176x208
+./target/debug/brewx-headless run roms/_extracted/tetris          # boot one game, full report
+./target/debug/brewx-headless run roms/_extracted --frames 300    # sweep + backlog ranking
 
 cargo build -p brewx-standalone-qt                    # interface (Qt 6 via qmake6/qmake/QMAKE)
 ./target/debug/brewx-qt [path]
@@ -84,7 +94,9 @@ No ports or dev server.
 ## Roadmap
 
 1. ~~Structure, version/resolution detection, headless `info`, Qt with selectors~~
-2. ARM CPU (dynarmic, as in zeebx-emu) + loading the `.mod` into the `zeebx-core` memory map
-3. Interface dispatch per version (IShell, IDisplay, IGraphics, ISound… from 1.x to 3.x)
-4. `brewx-headless run` with frame dumps; then video/input/audio in Qt
-5. Per-game persistence of the chosen settings
+2. ~~ARM CPU (dynarmic) + loader + boot + API trace and backlog sweep~~
+3. Interface implementations by backlog order: resources (`LoadResObject`/`LoadResString`/
+   `LoadResData`), `IFileMgr`, `IDisplay`/`IGraphics` drawing into a framebuffer, `ILicense`
+4. Per-version differences found by the sweep (vtables, `AEEDeviceInfo`, class IDs)
+5. `brewx-headless run` with frame dumps; then video/input/audio in Qt
+6. Per-game persistence of the chosen settings

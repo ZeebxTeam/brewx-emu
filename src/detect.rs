@@ -62,7 +62,14 @@ pub fn version(pkg: &Package) -> Detection<BrewVersion> {
     }
     if let Ok(data) = fs::read(&pkg.module) {
         evidence.push(match ModImage::parse(data) {
-            Ok(m) => format!(".mod {:?}, {} bytes", m.variant(), m.image().len()),
+            Ok(m) => match crate::loader::required_helper_version(m.image()) {
+                Some(v) => format!(
+                    ".mod {:?}, {} bytes, exige AEESTDLIB_VER {v:#x}",
+                    m.variant(),
+                    m.image().len()
+                ),
+                None => format!(".mod {:?}, {} bytes", m.variant(), m.image().len()),
+            },
             Err(e) => format!(".mod não reconhecido: {e:?}"),
         });
     }

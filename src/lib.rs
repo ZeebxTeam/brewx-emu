@@ -4,9 +4,12 @@
 //! it. The host-independent BREW platform (formats, vtables, heap, VFS, save state) comes from the
 //! [`zeebx_core`] crate, the same one zeebx-emu uses.
 
+pub mod cpu;
 pub mod detect;
 pub mod display;
 pub mod images;
+pub mod loader;
+pub mod machine;
 pub mod package;
 pub mod version;
 
@@ -92,6 +95,106 @@ pub fn describe(packages: &[Package], config: &LaunchConfig) -> String {
             let _ = writeln!(out, "  - {e}");
         }
         out.push('\n');
+    }
+    out
+}
+
+/// Boots a package with the resolved configuration and runs up to `frames` timer callbacks.
+pub fn run(
+    pkg: &Package,
+    config: &LaunchConfig,
+    frames: u32,
+) -> Result<(Resolved, machine::Report), String> {
+    use zeebx_core::formats::{miffile::MifFile, modfile::ModImage};
+
+    let resolved = config.resolve(pkg);
+    let mif = pkg
+        .mif
+        .as_ref()
+        .ok_or("sem .mif: não há ClassID do applet")?;
+    let mif_bytes = std::fs::read(mif).map_err(|e| format!("{}: {e}", mif.display()))?;
+    let clsid = MifFile::parse(&mif_bytes)
+        .map_err(|e| format!("{}: {e}", mif.display()))?
+        .main_applet()
+        .ok_or("o .mif não declara applet")?;
+    let module =
+        std::fs::read(&pkg.module).map_err(|e| format!("{}: {e}", pkg.module.display()))?;
+    let image = ModImage::parse(module).map_err(|e| format!("{}: {e:?}", pkg.module.display()))?;
+    let machine_config = machine::MachineConfig {
+        version: resolved.version.value,
+        resolution: resolved.resolution.value,
+        heap_size: zeebx_core::layout::DEFAULT_HEAP_SIZE,
+    };
+    let report =
+        machine::Machine::run(&image, clsid, machine_config, frames).map_err(|e| e.to_string())?;
+    Ok((resolved, report))
+}
+
+/// One line per package: how far it got and why it stopped. For sweeping `roms/`.
+pub fn summarize_run(pkg: &Package, report: &machine::Report) -> String {
+    format!(
+        "{:<24} {:<13?} stdlib={:<7} frames={:<4} classes={:<3} sem-impl={:<3} {}",
+        pkg.name,
+        report.stage,
+        format!("{:#x}", report.helper_version),
+        report.frames,
+        report.classes.len(),
+        report.unimplemented.len(),
+        report.stop.as_deref().unwrap_or("ok"),
+    )
+}
+
+/// The full run report of one package.
+pub fn describe_run(pkg: &Package, resolved: &Resolved, report: &machine::Report) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "== {} ==", pkg.name);
+    let _ = writeln!(
+        out,
+        "BREW {} / tela {}",
+        resolved.version.value, resolved.resolution.value
+    );
+    let _ = writeln!(out, "estágio:     {:?}", report.stage);
+    let _ = writeln!(
+        out,
+        "helpers:     AEESTDLIB_VER {:#x}",
+        report.helper_version
+    );
+    let _ = writeln!(out, "frames:      {}", report.frames);
+    let _ = writeln!(out, "instruções:  {}", report.instructions);
+    let _ = writeln!(
+        out,
+        "parada:      {}",
+        report.stop.as_deref().unwrap_or("-")
+    );
+    let _ = writeln!(out, "\nclasses pedidas:");
+    for (clsid, req) in &report.classes {
+        let served = req
+            .served
+            .map_or("não suportada".to_owned(), |i| i.name().to_owned());
+        let _ = writeln!(out, "  {clsid:#010x} x{:<5} {served}", req.count);
+    }
+    let _ = writeln!(out, "\nchamadas (sem implementação marcadas com *):");
+    let mut calls: Vec<_> = report.calls.iter().collect();
+    calls.sort_by(|a, b| b.1.cmp(a.1));
+    for (name, n) in calls {
+        let mark = if report.unimplemented.contains_key(name) {
+            "*"
+        } else {
+            " "
+        };
+        let _ = writeln!(out, " {mark} {n:>8}  {name}");
+    }
+    if report.stop.is_some() {
+        let _ = writeln!(out, "\núltimas chamadas antes da parada:");
+        for c in &report.recent {
+            let _ = writeln!(out, "  {c}");
+        }
+    }
+    if !report.log.is_empty() {
+        let _ = writeln!(out, "\nlog do jogo:");
+        for l in &report.log {
+            let _ = writeln!(out, "  {l}");
+        }
     }
     out
 }

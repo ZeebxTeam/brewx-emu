@@ -20,7 +20,10 @@ from `src/detect.rs`. Each answer carries a confidence and the evidence behind i
    `.mif` has the same header (`magic 0x0011`, version 1) and the same index entry types
    (1, 6, 20480; type 6 is missing in some homebrew and Qualcomm demos). 78 `.mod` files are raw
    ARM, 9 carry the `BREW` header. None of it separates versions yet.
-3. **Fallback: 3.1.** BREW is backward compatible — the newest version runs most older titles,
+3. **`AEESTDLIB_VER` required by `AEEMod_Load`** (`0x10000` vs `1`), found statically in the
+   ARM form of the check — evidence only for now; it marks the SDK generation, not yet a
+   version. See [`runtime.md`](runtime.md).
+4. **Fallback: 3.1.** BREW is backward compatible — the newest version runs most older titles,
    and the opposite breaks as soon as a game asks for a newer interface.
 
 The reliable signal will come at runtime, once interfaces are dispatched: which ClassIDs and

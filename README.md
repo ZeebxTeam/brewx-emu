@@ -5,8 +5,9 @@ the sibling of [zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu) — which emu
 (BREW 4.0.2) — and is built on the same platform core, the
 [`zeebx-core`](https://crates.io/crates/zeebx-core) crate.
 
-**Status:** early structure. It already finds packages and detects the BREW version and the
-screen resolution; it does not run games yet.
+**Status:** early. It finds packages, detects the BREW version and screen resolution, and boots
+games on an ARM JIT (Dynarmic) far enough to trace the BREW APIs they call. Nothing is drawn
+yet.
 
 ## Features
 
