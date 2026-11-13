@@ -22,6 +22,9 @@ opções:
   --brew-version <v>      auto (padrão), 1.0, 1.1, 2.0, 2.1, 3.0 ou 3.1
   --resolution <LxA>      auto (padrão) ou ex. 176x220
   --frames <n>            callbacks de timer a disparar depois do início (padrão 300)
+  --screenshot <png>      com um pacote só, salva a tela final
+  --keys <f:tecla,...>    aperta a tecla no frame f (solta 3 frames depois); teclas: up, down,
+                          left, right, select, clr, soft1, soft2, star, pound, 0-9
 ";
 
 fn main() -> ExitCode {
@@ -38,6 +41,8 @@ fn main() -> ExitCode {
 fn run(args: &[String]) -> Result<(), String> {
     let mut config = LaunchConfig::default();
     let mut frames = 300;
+    let mut screenshot: Option<String> = None;
+    let mut keys: Vec<(u32, u32)> = Vec::new();
     let mut positional = Vec::new();
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -61,6 +66,8 @@ fn run(args: &[String]) -> Result<(), String> {
                     .parse::<ResolutionSelect>()
                     .map_err(|e| e.to_string())?
             }
+            "--screenshot" => screenshot = Some(value(arg)?),
+            "--keys" => keys = parse_keys(&value(arg)?)?,
             "--frames" => {
                 frames = value(arg)?
                     .parse()
@@ -87,11 +94,15 @@ fn run(args: &[String]) -> Result<(), String> {
             let mut missing: BTreeMap<String, usize> = BTreeMap::new();
             let mut classes: BTreeMap<u32, usize> = BTreeMap::new();
             for pkg in &packages {
-                match brewx::run(pkg, &config, frames) {
-                    Ok((resolved, report)) if single => {
-                        print!("{}", brewx::describe_run(pkg, &resolved, &report))
+                match brewx::run(pkg, &config, frames, &keys) {
+                    Ok((resolved, report, screen)) if single => {
+                        print!("{}", brewx::describe_run(pkg, &resolved, &report));
+                        if let Some(path) = &screenshot {
+                            std::fs::write(path, screen.to_png()).map_err(|e| e.to_string())?;
+                            println!("\ntela salva em {path}");
+                        }
                     }
-                    Ok((_, report)) => {
+                    Ok((_, report, _)) => {
                         println!("{}", brewx::summarize_run(pkg, &report));
                         for name in report.unimplemented.keys() {
                             *missing.entry(name.clone()).or_default() += 1;
@@ -129,4 +140,21 @@ fn print_ranking(title: &str, counts: BTreeMap<String, usize>) {
     for (name, n) in rows.iter().take(30) {
         println!("  {n:>4}  {name}");
     }
+}
+
+fn parse_keys(text: &str) -> Result<Vec<(u32, u32)>, String> {
+    text.split(',')
+        .map(|item| {
+            let (frame, key) = item
+                .split_once(':')
+                .ok_or(format!("--keys: {item:?} não é frame:tecla"))?;
+            let frame = frame
+                .trim()
+                .parse()
+                .map_err(|_| format!("--keys: frame inválido em {item:?}"))?;
+            let code = brewx::machine::avk::by_name(key.trim())
+                .ok_or(format!("--keys: tecla desconhecida {key:?}"))?;
+            Ok((frame, code))
+        })
+        .collect()
 }

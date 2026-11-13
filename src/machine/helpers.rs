@@ -10,6 +10,8 @@ use crate::cpu::{CpuBackend, CpuError};
 
 /// Longest guest string read in one go: a missing terminator must not hang the host.
 const MAX_STRING: u32 = 64 * 1024;
+/// `REALLOC`'s flag for "do not zero the new part", in the size's top bit.
+const ALLOC_NO_ZMEM: u32 = 0x8000_0000;
 /// No guest buffer is larger than the heap; a bigger length is garbage from the game, and
 /// honoring it would allocate gigabytes on the host.
 const MAX_BLOCK: u32 = zeebx_core::layout::HEAP_MAX_SIZE as u32;
@@ -36,7 +38,8 @@ impl Machine {
                 SUCCESS
             }
             "realloc" => {
-                let (ptr, size) = (a(self, 0)?, a(self, 1)?);
+                // The top bit asks for no zero-fill; the size is the rest.
+                let (ptr, size) = (a(self, 0)?, a(self, 1)? & !ALLOC_NO_ZMEM);
                 self.realloc(ptr, size)?
             }
             "memmove" => {
@@ -167,6 +170,42 @@ impl Machine {
                 self.log(text.trim_end().to_owned());
                 SUCCESS
             }
+            // void *SetupNativeImage(AEECLSID cls, void *pBuffer, AEEImageInfo *pii,
+            //                        boolean *pbRealloc): what `CONVERTBMP` calls.
+            "SetupNativeImage" => {
+                let (buffer, info, realloc) = (a(self, 1)?, a(self, 2)?, a(self, 3)?);
+                self.setup_native_image(buffer, info, realloc)?
+            }
+            // char *WSTRTOSTR(const AECHAR *src, char *dst, int nSize)
+            "wstrtostr" => {
+                let (src, dst, size) = (a(self, 0)?, a(self, 1)?, a(self, 2)? as usize);
+                if dst != 0 && size > 0 {
+                    let mut bytes: Vec<u8> = self
+                        .wstr(src)?
+                        .iter()
+                        .map(|&u| u8::try_from(u).unwrap_or(b'?'))
+                        .take(size - 1)
+                        .collect();
+                    bytes.push(0);
+                    self.cpu.write_mem(dst, &bytes)?;
+                }
+                dst
+            }
+            // AECHAR *STRTOWSTR(const char *src, AECHAR *dst, int nSizeBytes)
+            "strtowstr" => {
+                let (src, dst, size) = (a(self, 0)?, a(self, 1)?, a(self, 2)? as usize);
+                if dst != 0 && size >= 2 {
+                    let mut bytes: Vec<u8> = self
+                        .cstr(src)?
+                        .iter()
+                        .take(size / 2 - 1)
+                        .flat_map(|&b| u16::from(b).to_le_bytes())
+                        .collect();
+                    bytes.extend([0, 0]);
+                    self.cpu.write_mem(dst, &bytes)?;
+                }
+                dst
+            }
             "GetAEEVersion" => self.aee_version(a(self, 0)?, a(self, 1)?)?,
             "GetAppInstance" => self.applet,
             "aee_GetTimeMS" | "aee_GetUpTimeMS" => self.now_ms() as u32,
@@ -187,6 +226,32 @@ impl Machine {
             _ => return Ok(None),
         };
         Ok(Some(value))
+    }
+
+    /// Decodes a Windows BMP in guest memory into a native bitmap and returns its handle.
+    fn setup_native_image(&mut self, buffer: u32, info: u32, realloc: u32) -> Result<u32, Halt> {
+        if realloc != 0 {
+            // The result lives in an allocation of ours, which is what this flag reports.
+            self.cpu.write_mem(realloc, &[1])?;
+        }
+        let Some(image) = self
+            .guest_bmp(buffer)?
+            .and_then(|b| crate::video::Image::decode(&b))
+        else {
+            return Ok(0);
+        };
+        let handle = self.new_object(Interface::Bitmap)?;
+        if info != 0 {
+            // AEEImageInfo: cx, cy, nColors, bAnimated, cxFrame.
+            let (cx, cy) = (image.width as u16, image.height as u16);
+            let mut b = [0u8; 10];
+            b[0..2].copy_from_slice(&cx.to_le_bytes());
+            b[2..4].copy_from_slice(&cy.to_le_bytes());
+            b[8..10].copy_from_slice(&cx.to_le_bytes());
+            self.cpu.write_mem(info, &b)?;
+        }
+        self.bitmaps.insert(handle, image);
+        Ok(handle)
     }
 
     /// `MALLOC` returns zeroed memory on every BREW version.

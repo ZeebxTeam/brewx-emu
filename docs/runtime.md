@@ -56,10 +56,27 @@ Top of the backlog: `IFileMgr::OpenFile` (20 games), `IDisplay::DrawRect` (16),
 `IDisplay::Update` (10). Most unsupported class: `0x01002000` (9), then `0x01014bc3` (7, the
 OpenGL ES class zeebx-emu calls `AEECLSID_GL`).
 
+## Second sweep: video, resources and files
+
+With the framebuffer, `IDisplay`/`IGraphics`/`IImage`/`IBitmap`/`IDIB`, `.bar` resources,
+`IFileMgr`/`IFile`, `IMemAStream` and `ISHELL_GetHandler`, **24 games run** (up from 14) and most
+of them show recognizable screens: Asteroids is playable from title to gameplay with
+`--keys 100:select`. Findings along the way:
+
+- **Old `.bar` strings have no encoding byte.** Zeebo `.bar` files put one before Latin-1 text and
+  `zeebx-core`'s `ResFile::string` always drops it; Asteroids packs `"Play"`, `"Menu"` back to
+  back and showed "lay". `resources.rs` decodes strings itself (printable first byte = text).
+- **Off-screen bitmaps must live in guest memory.** Games `QueryInterface` an `IBitmap` for
+  `IDIB` to reach the pixels, and create 0x0 DIBs whose `pBmp`/`cx`/`cy`/`nPitch` they point at
+  their own buffers. The guest struct is the truth; the host loads and stores around each call.
+- Loading more resources can expose deeper paths: SHS used to idle after one frame, and now reads
+  its files and dies in its own code after listing a directory (`IFileMgr::EnumInit` is a stub).
+
 ## Known gaps
 
 - Slot order comes from SDK 4.0.2 (`zeebx-core`). The calls seen so far are plausible for 1.x–3.x,
   but a version-specific vtable that differs will show up as nonsense calls in the sweep.
 - Extension modules (`dll_*`, imicro3d) are not loaded yet.
-- No video, input or audio: objects are a vtable pointer and nothing else.
+- No sound. Text uses a built-in 8x8 font; handset fonts (`IFont`) are not emulated, and some
+  menus (Street Fighter II) come out without text. BCI images are not decoded.
 - `zeebx-core` 0.1.1 `Heap::alloc` overflows on huge sizes; `malloc` guards it here.

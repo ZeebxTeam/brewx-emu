@@ -5,9 +5,8 @@ the sibling of [zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu) — which emu
 (BREW 4.0.2) — and is built on the same platform core, the
 [`zeebx-core`](https://crates.io/crates/zeebx-core) crate.
 
-**Status:** early. It finds packages, detects the BREW version and screen resolution, and boots
-games on an ARM JIT (Dynarmic) far enough to trace the BREW APIs they call. Nothing is drawn
-yet.
+**Status:** early. Games boot on an ARM JIT (Dynarmic) and draw: Asteroids is playable, and
+about a quarter of the test corpus reaches its menus. No sound yet.
 
 ## Features
 

@@ -30,6 +30,10 @@ zeebx-core = { version = "0.1", default-features = false }
 # Recompiles A32/Thumb to native host code, as in zeebx-emu. Only emits x86-64 and AArch64: the
 # targets without it (wasm, iOS, 32-bit ARM) will need an interpreter backend.
 dynarmic = "0.1.3"
+# Decoding PNG resources and writing frame dumps. MIT/Apache-2.0.
+png = "0.18"
+# 8x8 glyphs for text until handset fonts are emulated. MIT, data only.
+font8x8 = "0.3"
 
 # [patch.crates-io]
 # zeebx-core = { path = "../zeebx-core" }

@@ -2,7 +2,7 @@
 
 use zeebx_core::brew::aee::Interface;
 
-use super::{ECLASSNOTSUPPORT, Halt, Machine, SUCCESS};
+use super::{ECLASSNOTSUPPORT, EFAILED, Halt, Machine, SUCCESS};
 use crate::cpu::CpuBackend;
 
 /// ClassIDs from the BREW SDK headers (`AEEClassIDs.h`): `AEECLSID_CORE` is `0x01001000`, and
@@ -49,10 +49,7 @@ fn interface_for(clsid: u32) -> Option<Interface> {
 }
 
 impl Machine {
-    pub(super) fn shell_method(&mut self, slot: u32) -> Result<Option<u32>, Halt> {
-        let Some(name) = Interface::Shell.method(slot) else {
-            return Ok(None);
-        };
+    pub(super) fn shell_method(&mut self, name: &str) -> Result<Option<u32>, Halt> {
         let value = match name {
             "CreateInstance" => self.create_instance()?,
             "GetDeviceInfo" => self.device_info()?,
@@ -70,6 +67,34 @@ impl Machine {
                     .retain(|t| !(t.user == user && (func == 0 || t.func == func)));
                 SUCCESS
             }
+            // AEECLSID GetHandler(IShell *, AEECLSID clsBase, const char *pszMIME)
+            "GetHandler" => {
+                let mime = String::from_utf8_lossy(&self.cstr(self.arg(2)?)?).to_ascii_lowercase();
+                match mime.as_str() {
+                    "image/bmp" | "image/x-bmp" | "image/wbmp" => AEECLSID_WINBMP,
+                    "image/png" => AEECLSID_PNG,
+                    "image/gif" => AEECLSID_GIF,
+                    "image/jpeg" | "image/jpg" => AEECLSID_JPEG,
+                    _ => {
+                        self.missing(format!("handler para {mime:?}"));
+                        0
+                    }
+                }
+            }
+            "LoadResData" => self.load_res_data(false)?,
+            "LoadResDataEx" => self.load_res_data(true)?,
+            "LoadResString" => self.load_res_string()?,
+            "LoadResObject" => self.load_res_object()?,
+            "FreeResData" => {
+                let ptr = self.arg(1)?;
+                if ptr != 0 {
+                    self.heap.free(ptr);
+                }
+                SUCCESS
+            }
+            // No saved preferences: the game falls back to its defaults.
+            "GetPrefs" => EFAILED,
+            "SetPrefs" => SUCCESS,
             "Resume" => {
                 // AEECallback: pNext, pmc, pfnCancel, pCancelData, pfnNotify, pNotifyData.
                 let cb = self.arg(1)?;

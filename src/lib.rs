@@ -12,6 +12,7 @@ pub mod loader;
 pub mod machine;
 pub mod package;
 pub mod version;
+pub mod video;
 
 #[cfg(test)]
 pub(crate) mod scratch;
@@ -99,12 +100,23 @@ pub fn describe(packages: &[Package], config: &LaunchConfig) -> String {
     out
 }
 
-/// Boots a package with the resolved configuration and runs up to `frames` timer callbacks.
-pub fn run(
-    pkg: &Package,
-    config: &LaunchConfig,
-    frames: u32,
-) -> Result<(Resolved, machine::Report), String> {
+/// Where games write their files, outside the ROM folders: `$XDG_DATA_HOME/brewx`,
+/// `~/.local/share/brewx`, or `%APPDATA%\brewx`.
+pub fn default_data_dir() -> std::path::PathBuf {
+    let env = |k: &str| {
+        std::env::var_os(k)
+            .filter(|v| !v.is_empty())
+            .map(std::path::PathBuf::from)
+    };
+    env("XDG_DATA_HOME")
+        .or_else(|| env("APPDATA"))
+        .or_else(|| env("HOME").map(|h| h.join(".local/share")))
+        .unwrap_or_else(std::env::temp_dir)
+        .join("brewx")
+}
+
+/// Loads a package and boots it with the resolved configuration.
+pub fn start(pkg: &Package, config: &LaunchConfig) -> Result<(Resolved, machine::Machine), String> {
     use zeebx_core::formats::{miffile::MifFile, modfile::ModImage};
 
     let resolved = config.resolve(pkg);
@@ -120,14 +132,51 @@ pub fn run(
     let module =
         std::fs::read(&pkg.module).map_err(|e| format!("{}: {e}", pkg.module.display()))?;
     let image = ModImage::parse(module).map_err(|e| format!("{}: {e:?}", pkg.module.display()))?;
+    let app_dir = pkg
+        .module
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
     let machine_config = machine::MachineConfig {
         version: resolved.version.value,
         resolution: resolved.resolution.value,
         heap_size: zeebx_core::layout::DEFAULT_HEAP_SIZE,
+        app_dir,
+        data_dir: default_data_dir().join("data").join(&pkg.name),
     };
-    let report =
-        machine::Machine::run(&image, clsid, machine_config, frames).map_err(|e| e.to_string())?;
-    Ok((resolved, report))
+    let machine =
+        machine::Machine::start(&image, clsid, machine_config).map_err(|e| e.to_string())?;
+    Ok((resolved, machine))
+}
+
+/// Boots a package and fires up to `frames` timer callbacks; returns the report and the last
+/// screen.
+///
+/// `keys` is a script of `(frame, AVK code)`: the key is pressed when that frame is reached and
+/// released three frames later.
+pub fn run(
+    pkg: &Package,
+    config: &LaunchConfig,
+    frames: u32,
+    keys: &[(u32, u32)],
+) -> Result<(Resolved, machine::Report, video::Framebuffer), String> {
+    const HOLD_FRAMES: u32 = 3;
+    let (resolved, mut machine) = start(pkg, config)?;
+    while machine.halted().is_none() && machine.frames() < frames {
+        let frame = machine.frames();
+        for &(at, code) in keys {
+            if at == frame {
+                machine.key(code, true);
+            }
+            if at + HOLD_FRAMES == frame {
+                machine.key(code, false);
+            }
+        }
+        if !machine.fire_next_timer() {
+            break;
+        }
+    }
+    Ok((resolved, machine.report(), machine.screen().clone()))
 }
 
 /// One line per package: how far it got and why it stopped. For sweeping `roms/`.
@@ -159,7 +208,11 @@ pub fn describe_run(pkg: &Package, resolved: &Resolved, report: &machine::Report
         "helpers:     AEESTDLIB_VER {:#x}",
         report.helper_version
     );
-    let _ = writeln!(out, "frames:      {}", report.frames);
+    let _ = writeln!(
+        out,
+        "frames:      {} (updates de tela: {})",
+        report.frames, report.updates
+    );
     let _ = writeln!(out, "instruções:  {}", report.instructions);
     let _ = writeln!(
         out,
@@ -183,6 +236,12 @@ pub fn describe_run(pkg: &Package, resolved: &Resolved, report: &machine::Report
             " "
         };
         let _ = writeln!(out, " {mark} {n:>8}  {name}");
+    }
+    if !report.missing.is_empty() {
+        let _ = writeln!(out, "\narquivos e recursos que faltaram:");
+        for m in &report.missing {
+            let _ = writeln!(out, "  {m}");
+        }
     }
     if report.stop.is_some() {
         let _ = writeln!(out, "\núltimas chamadas antes da parada:");

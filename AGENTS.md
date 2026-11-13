@@ -23,7 +23,10 @@ src/
   images.rs             finds PNG/BMP inside arbitrary bytes (for resolution detection)
   cpu/                  CpuBackend, region-based GuestMemory, Dynarmic backend (from zeebx-emu)
   loader.rs             guest memory map, AEESTDLIB_VER detection
-  machine/              boot, API dispatch (helpers, IShell), timers, run Report
+  video.rs              framebuffer, 2D primitives, BMP/PNG decoding, built-in 8x8 font
+  machine/              boot, dispatch, timers, keys; one file per area: helpers, shell,
+                        resources (.bar), display (IDisplay/IGraphics/IImage), bitmap
+                        (IBitmap/IDIB in guest memory), files (IFileMgr/IFile), stream
   lib.rs                LaunchConfig::resolve, `run`, and the reports
 frontends/
   headless/             `brewx-headless`: command line, no window — the test target
@@ -81,11 +84,13 @@ cargo build -p brewx-headless                         # CLI
 ./target/debug/brewx-headless info <path> --brew-version 2.1 --resolution 176x208
 ./target/debug/brewx-headless run roms/_extracted/tetris          # boot one game, full report
 ./target/debug/brewx-headless run roms/_extracted --frames 300    # sweep + backlog ranking
+./target/debug/brewx-headless run roms/_extracted/Asteroids --keys 100:select --screenshot /tmp/a.png
+BREWX_TRACE=IDisplay:: ./target/debug/brewx-headless run <game> --frames 5   # calls + args on stderr
 
 cargo build -p brewx-standalone-qt                    # interface (Qt 6 via qmake6/qmake/QMAKE)
 ./target/debug/brewx-qt [path]
-# check the interface without a screen:
-QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 ./target/debug/brewx-qt <path> --screenshot /tmp/qt.png
+# check the interface without a screen (the game runs for the delay first):
+QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 ./target/debug/brewx-qt <path> --screenshot /tmp/qt.png --screenshot-delay 3000
 ```
 
 QML errors only show up at runtime; `QT_FORCE_STDERR_LOGGING=1` sends them to the terminal.
@@ -95,8 +100,9 @@ No ports or dev server.
 
 1. ~~Structure, version/resolution detection, headless `info`, Qt with selectors~~
 2. ~~ARM CPU (dynarmic) + loader + boot + API trace and backlog sweep~~
-3. Interface implementations by backlog order: resources (`LoadResObject`/`LoadResString`/
-   `LoadResData`), `IFileMgr`, `IDisplay`/`IGraphics` drawing into a framebuffer, `ILicense`
-4. Per-version differences found by the sweep (vtables, `AEEDeviceInfo`, class IDs)
-5. `brewx-headless run` with frame dumps; then video/input/audio in Qt
+3. ~~First playable game: framebuffer, IDisplay/IGraphics/IImage/IBitmap/IDIB, `.bar`
+   resources, files, memory streams, keys; Qt shows frames and takes the keyboard~~
+4. Backlog by reach (`run roms/_extracted`): fonts (`IFont`, menus without text), clipping
+   glitches, BCI images, `IHeap`, `GetDeviceInfoEx`, `IFileMgr` enumeration, sound
+5. Per-version differences found by the sweep (vtables, `AEEDeviceInfo`, class IDs)
 6. Per-game persistence of the chosen settings
