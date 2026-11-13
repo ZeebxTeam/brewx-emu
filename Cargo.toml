@@ -1,0 +1,44 @@
+[workspace]
+members = [
+    ".",
+    "frontends/headless",
+    "frontends/qt-standalone",
+]
+resolver = "3"
+
+[package]
+name = "brewx"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-2.0-or-later"
+authors = ["ZeebxTeam"]
+repository = "https://github.com/ZeebxTeam/brewx-emu"
+description = "Emulador de Qualcomm BREW 1.x a 3.x"
+publish = false
+
+# O núcleo do emulador, sem interface: consumido pelo headless e pelo Qt.
+[lib]
+name = "brewx"
+path = "src/lib.rs"
+
+[dependencies]
+# A plataforma BREW sem host: .mod/.mif/.bar, vtables, mapa de memória, heap, VFS e save state.
+# Repositório próprio (ZeebxTeam/zeebx-core). Sem a feature `sql`: o SQLMGR é da linha 4.x do
+# Zeebo, e o `bundled` compila SQLite em C à toa para 1.x–3.x.
+# Para desenvolver junto com o core, descomente o `[patch.crates-io]` abaixo.
+zeebx-core = { version = "0.1", default-features = false }
+
+# [patch.crates-io]
+# zeebx-core = { path = "../zeebx-core" }
+
+# Mesma lição do zeebx-emu: em opt-level 0 o laço de despacho e o rasterizador ficam ~7x mais
+# lentos, e o rebuild incremental não piora em 2.
+[profile.dev]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

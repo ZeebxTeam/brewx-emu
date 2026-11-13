@@ -1,0 +1,14 @@
+[package]
+name = "brewx-headless"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-2.0-or-later"
+description = "brewx sem interface: inspeção, testes e medição pela linha de comando"
+publish = false
+
+[[bin]]
+name = "brewx-headless"
+path = "src/main.rs"
+
+[dependencies]
+brewx = { path = "../.." }

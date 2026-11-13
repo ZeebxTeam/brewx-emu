@@ -1,0 +1,18 @@
+# ROMs e dumps para teste — nunca versionar
+roms/
+
+# Rust
+/target/
+
+# cxx-qt-build grava a configuração do language server de QML com o caminho desta máquina.
+.qmlls.ini
+
+# Editores / SO
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Relatórios e dumps que o emulador escreve
+*.log
+*.bmp
