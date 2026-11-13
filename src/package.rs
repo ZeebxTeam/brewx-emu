@@ -1,41 +1,44 @@
-//! Encontra os aplicativos BREW num caminho: o `.mod`, o `.mif` que o descreve e os `.bar`.
+//! Finds the BREW applications under a path: the `.mod`, the `.mif` that describes it and the
+//! `.bar` files.
 //!
-//! Dois arranjos de pasta convivem nos dumps, e eles próprios já dizem algo sobre a versão:
+//! Two folder layouts coexist in dumps:
 //!
 //! ```text
-//! Legacy (BREW 1.x/2.x)        Modern (BREW 3.x)
-//! brew/jogo.mif                brew/mif/12345.mif
-//! brew/jogo/jogo.mod           brew/mod/12345/jogo.mod
-//! brew/jogo/jogo.bar           brew/mod/12345/jogo.bar
+//! Legacy (flat)                Modern (BREW 3.x handsets)
+//! brew/game.mif                brew/mif/12345.mif
+//! brew/game/game.mod           brew/mod/12345/game.mod
+//! brew/game/game.bar           brew/mod/12345/game.bar
 //! ```
+//!
+//! Legacy is what 1.x/2.x handsets used, and also how archives pack games of any version.
 
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// Profundidade máxima da varredura de uma pasta; dumps de aparelho inteiro raramente passam de 4.
+/// Maximum folder scan depth; whole-handset dumps rarely go past 4.
 const MAX_DEPTH: usize = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Layout {
-    /// `.mif` ao lado da pasta do módulo, com o mesmo nome dela.
+    /// `.mif` next to the module folder, with the same name.
     Legacy,
-    /// `mif/<id>.mif` e `mod/<id>/`.
+    /// `mif/<id>.mif` and `mod/<id>/`.
     Modern,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Package {
-    /// Nome da pasta do módulo (no layout moderno, o ID numérico).
+    /// Name of the module folder (the numeric ID in the modern layout).
     pub name: String,
     pub module: PathBuf,
     pub mif: Option<PathBuf>,
     pub resources: Vec<PathBuf>,
-    /// `None` quando o `.mif` não foi achado em nenhum dos dois arranjos.
+    /// `None` when the `.mif` was found in neither layout.
     pub layout: Option<Layout>,
 }
 
-/// Os pacotes em `path`, que pode ser um `.mod`, um `.mif` ou uma pasta.
+/// The packages at `path`, which may be a `.mod`, a `.mif` or a folder.
 pub fn discover(path: &Path) -> io::Result<Vec<Package>> {
     if path.is_dir() {
         let mut modules = Vec::new();
@@ -103,7 +106,7 @@ fn from_module(module: &Path) -> Package {
     }
 }
 
-/// O caminho inverso: do `.mif` para o `.mod` que ele descreve.
+/// The reverse lookup: from the `.mif` to the `.mod` it describes.
 fn module_for_mif(mif: &Path) -> Option<PathBuf> {
     let stem = mif.file_stem()?.to_string_lossy().into_owned();
     let dir = mif.parent()?;
@@ -124,7 +127,7 @@ fn file_name(path: &Path) -> Option<String> {
     path.file_name().map(|n| n.to_string_lossy().into_owned())
 }
 
-/// Dumps vêm de FAT, onde `JOGO.MIF` e `jogo.mif` são o mesmo arquivo; no Linux não são.
+/// Dumps come from FAT, where `GAME.MIF` and `game.mif` are the same file; on Linux they are not.
 fn find_ci(dir: &Path, name: &str) -> Option<PathBuf> {
     fs::read_dir(dir)
         .ok()?

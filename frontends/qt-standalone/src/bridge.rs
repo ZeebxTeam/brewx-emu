@@ -1,5 +1,5 @@
-//! A ponte QML ↔ núcleo. Os rótulos dos seletores saem daqui, para que a lista de versões e de
-//! resoluções exista num lugar só (`brewx::BrewVersion::ALL`, `Resolution::PRESETS`).
+//! The QML ↔ core bridge. The selector labels come from here, so the lists of versions and
+//! resolutions live in one place (`brewx::BrewVersion::ALL`, `Resolution::PRESETS`).
 
 #[cxx_qt::bridge]
 pub mod qobject {
@@ -15,17 +15,17 @@ pub mod qobject {
         #[qml_element]
         type Inspector = super::InspectorRust;
 
-        /// "Automático" seguido das versões, na ordem dos índices que `inspect` recebe.
+        /// "Automático" followed by the versions, in the index order `inspect` receives.
         #[qinvokable]
         #[cxx_name = "versionOptions"]
         fn version_options(self: &Inspector) -> QStringList;
 
-        /// "Automático" seguido dos presets de tela.
+        /// "Automático" followed by the screen presets.
         #[qinvokable]
         #[cxx_name = "resolutionOptions"]
         fn resolution_options(self: &Inspector) -> QStringList;
 
-        /// Relatório dos pacotes em `path` com a configuração escolhida. Índice 0 é automático.
+        /// Report of the packages at `path` with the chosen configuration. Index 0 is automatic.
         #[qinvokable]
         fn inspect(self: &Inspector, path: &QString, version: i32, resolution: i32) -> QString;
     }
@@ -56,7 +56,7 @@ impl qobject::Inspector {
     }
 
     fn inspect(&self, path: &QString, version: i32, resolution: i32) -> QString {
-        // Índice fora da lista (ou 0) é automático.
+        // An index outside the list (or 0) is automatic.
         let pick = |i: i32| usize::try_from(i - 1).ok();
         let config = LaunchConfig {
             version: pick(version)

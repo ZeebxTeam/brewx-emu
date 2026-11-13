@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-As instruções deste repositório estão em [`AGENTS.md`](AGENTS.md) — inclusive a seção
-`## Comandos`. Leia antes de mexer em qualquer coisa.
+The instructions for this repository are in [`AGENTS.md`](AGENTS.md) — including the
+`## Commands` section. Read it before touching anything.
 
-Este arquivo só existe porque o Claude Code procura por este nome. Instruções em um lugar só
-evitam que uma das cópias fique velha.
+This file only exists because Claude Code looks for it by name. Keeping the instructions in one
+place avoids one copy going stale.

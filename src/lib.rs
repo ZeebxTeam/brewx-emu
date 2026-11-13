@@ -1,8 +1,8 @@
-//! brewx — emulador de Qualcomm BREW 1.x a 3.x.
+//! brewx — a Qualcomm BREW 1.x to 3.x emulator.
 //!
-//! Esta biblioteca é o emulador sem interface; os frontends (`frontends/`) só apresentam. A
-//! plataforma BREW independente de host (formatos, vtables, heap, VFS, save state) vem do crate
-//! [`zeebx_core`], o mesmo do zeebx-emu.
+//! This library is the emulator without an interface; the frontends (`frontends/`) only present
+//! it. The host-independent BREW platform (formats, vtables, heap, VFS, save state) comes from the
+//! [`zeebx_core`] crate, the same one zeebx-emu uses.
 
 pub mod detect;
 pub mod display;
@@ -20,14 +20,14 @@ pub use display::{Resolution, ResolutionSelect};
 pub use package::Package;
 pub use version::{BrewVersion, VersionSelect};
 
-/// O que o usuário escolheu antes de abrir um jogo. `Auto` em cada campo delega à detecção.
+/// What the user chose before opening a game. `Auto` in a field delegates it to detection.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct LaunchConfig {
     pub version: VersionSelect,
     pub resolution: ResolutionSelect,
 }
 
-/// A configuração final de um pacote: a escolha manual vence; senão, o que a detecção achou.
+/// The final configuration of a package: a manual choice wins; otherwise, what detection found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolved {
     pub version: Detection<BrewVersion>,
@@ -59,8 +59,8 @@ fn manual<T>(value: T) -> Detection<T> {
     }
 }
 
-/// Relatório legível dos pacotes achados e da configuração de cada um. É o que o headless
-/// imprime e o que o Qt mostra no painel de inspeção.
+/// Human-readable report of the packages found and the configuration of each. It is what the
+/// headless frontend prints and what the Qt one shows in its inspection panel.
 pub fn describe(packages: &[Package], config: &LaunchConfig) -> String {
     if packages.is_empty() {
         return "nenhum .mod encontrado\n".into();

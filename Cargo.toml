@@ -13,26 +13,26 @@ edition = "2024"
 license = "GPL-2.0-or-later"
 authors = ["ZeebxTeam"]
 repository = "https://github.com/ZeebxTeam/brewx-emu"
-description = "Emulador de Qualcomm BREW 1.x a 3.x"
+description = "Qualcomm BREW 1.x to 3.x emulator"
 publish = false
 
-# O núcleo do emulador, sem interface: consumido pelo headless e pelo Qt.
+# The emulator core, without an interface: consumed by the headless and Qt frontends.
 [lib]
 name = "brewx"
 path = "src/lib.rs"
 
 [dependencies]
-# A plataforma BREW sem host: .mod/.mif/.bar, vtables, mapa de memória, heap, VFS e save state.
-# Repositório próprio (ZeebxTeam/zeebx-core). Sem a feature `sql`: o SQLMGR é da linha 4.x do
-# Zeebo, e o `bundled` compila SQLite em C à toa para 1.x–3.x.
-# Para desenvolver junto com o core, descomente o `[patch.crates-io]` abaixo.
+# The host-independent BREW platform: .mod/.mif/.bar, vtables, memory map, heap, VFS and save
+# state. Lives in its own repository (ZeebxTeam/zeebx-core). Without the `sql` feature: SQLMGR
+# belongs to the Zeebo's 4.x line, and `bundled` would build SQLite in C for nothing on 1.x–3.x.
+# To develop alongside the core, uncomment the `[patch.crates-io]` below.
 zeebx-core = { version = "0.1", default-features = false }
 
 # [patch.crates-io]
 # zeebx-core = { path = "../zeebx-core" }
 
-# Mesma lição do zeebx-emu: em opt-level 0 o laço de despacho e o rasterizador ficam ~7x mais
-# lentos, e o rebuild incremental não piora em 2.
+# Same lesson as zeebx-emu: at opt-level 0 the dispatch loop and the rasterizer run ~7x slower,
+# and the incremental rebuild does not get worse at 2.
 [profile.dev]
 opt-level = 2
 

@@ -1,36 +1,37 @@
 # brewx
 
-Emulador de **Qualcomm BREW 1.0 a 3.1**, em Rust. Projeto irmão do
-[zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu) — que emula o Zeebo (BREW 4.0.2) — e construído
-sobre o mesmo núcleo de plataforma, o crate [`zeebx-core`](https://crates.io/crates/zeebx-core).
+An emulator for **Qualcomm BREW 1.0 to 3.1** feature-phone applications, written in Rust. It is
+the sibling of [zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu) — which emulates the Zeebo
+(BREW 4.0.2) — and is built on the same platform core, the
+[`zeebx-core`](https://crates.io/crates/zeebx-core) crate.
 
-> *An emulator for Qualcomm BREW 1.x–3.x feature-phone apps, sibling of zeebx-emu.*
+**Status:** early structure. It already finds packages and detects the BREW version and the
+screen resolution; it does not run games yet.
 
-**Estado:** estrutura inicial. Já acha os pacotes e detecta versão de BREW e resolução; ainda não
-executa jogos.
+## Features
 
-## Recursos
+- BREW version **automatic or manual** (1.0, 1.1, 2.0, 2.1, 3.0, 3.1)
+- Screen resolution **automatic or manual** (presets from 128x128 to 240x400, or any `WxH`)
+- Detection shows its confidence and evidence, so you know when to force a value —
+  see [`docs/detection.md`](docs/detection.md)
+- Frontends: `brewx-headless` (command line) and `brewx-qt` (Qt 6)
 
-- Versão de BREW **automática ou manual** (1.0, 1.1, 2.0, 2.1, 3.0, 3.1)
-- Resolução de tela **automática ou manual** (presets de 128x128 a 240x400, ou qualquer `LxA`)
-- Detecção mostra a confiança e as evidências — dá para saber quando vale forçar
-- Frontends: `brewx-headless` (linha de comando) e `brewx-qt` (Qt 6)
+## Building
 
-## Compilar
-
-Rust 1.93+. A interface precisa de **Qt 6** (achado por `qmake6`, `qmake` ou `QMAKE`).
+Rust 1.93+. The interface needs **Qt 6** (found through `qmake6`, `qmake` or `QMAKE`).
 
 ```bash
 cargo build --release -p brewx-headless
 cargo build --release -p brewx-standalone-qt
 
-./target/release/brewx-headless info caminho/do/jogo
-./target/release/brewx-qt caminho/do/jogo
+./target/release/brewx-headless info path/to/game
+./target/release/brewx-qt path/to/game
 ```
 
-O jogo pode ser um `.mod`, um `.mif` ou uma pasta (dump do aparelho inteiro, inclusive).
+A game can be a `.mod`, a `.mif` or a folder (a whole handset dump included). Archives are not
+opened directly: extract them first.
 
-## Licença
+## License
 
-GPL-2.0-or-later — ver [`LICENSE`](LICENSE). O brewx não inclui jogos nem firmware: use dumps
-seus.
+GPL-2.0-or-later — see [`LICENSE`](LICENSE). brewx ships no games and no firmware: use your own
+dumps.

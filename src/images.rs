@@ -1,11 +1,11 @@
-//! Acha cabeçalhos de PNG e BMP dentro de bytes quaisquer e lê as dimensões.
+//! Finds PNG and BMP headers inside arbitrary bytes and reads their dimensions.
 //!
-//! Serve à detecção de resolução sem depender do formato do `.bar`, que mudou entre versões de
-//! BREW: a imagem de abertura de um jogo costuma ter exatamente o tamanho da tela.
+//! Resolution detection uses it without depending on the `.bar` layout: a game's splash image
+//! usually has the size of the screen.
 
 const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
 
-/// Dimensões `(largura, altura)` de toda imagem PNG ou BMP encontrada em `data`.
+/// `(width, height)` of every PNG or BMP image found in `data`.
 pub fn sniff_dimensions(data: &[u8]) -> Vec<(u32, u32)> {
     let mut found = Vec::new();
     for i in 0..data.len() {
@@ -20,7 +20,7 @@ pub fn sniff_dimensions(data: &[u8]) -> Vec<(u32, u32)> {
 }
 
 fn png_dimensions(data: &[u8]) -> Option<(u32, u32)> {
-    // Assinatura, tamanho do chunk e "IHDR", e então largura e altura em big-endian.
+    // Signature, chunk length and "IHDR", then width and height in big-endian.
     if data.get(12..16)? != b"IHDR" {
         return None;
     }
@@ -30,7 +30,7 @@ fn png_dimensions(data: &[u8]) -> Option<(u32, u32)> {
 }
 
 fn bmp_dimensions(data: &[u8]) -> Option<(u32, u32)> {
-    // "BM" aparece por acaso em qualquer binário: só conta se o cabeçalho DIB fizer sentido.
+    // "BM" shows up by chance in any binary: it only counts if the DIB header makes sense.
     let le_u32 = |at: usize| Some(u32::from_le_bytes(data.get(at..at + 4)?.try_into().ok()?));
     let le_u16 = |at: usize| Some(u16::from_le_bytes(data.get(at..at + 2)?.try_into().ok()?));
     let dib_size = le_u32(14)?;
@@ -43,7 +43,7 @@ fn bmp_dimensions(data: &[u8]) -> Option<(u32, u32)> {
         ),
         40 | 52 | 56 | 108 | 124 => {
             let w = le_u32(18)? as i32;
-            // Altura negativa é bitmap de cima para baixo; o tamanho é o mesmo.
+            // A negative height is a top-down bitmap; the size is the same.
             let h = (le_u32(22)? as i32).unsigned_abs();
             if w <= 0 {
                 return None;

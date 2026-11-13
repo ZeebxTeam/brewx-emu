@@ -10,9 +10,9 @@ ApplicationWindow {
     visible: true
     title: "brewx"
 
-    // Caminho passado na linha de comando (`brewx-qt <caminho>`).
+    // Path given on the command line (`brewx-qt <path>`).
     property string initialPath: ""
-    // `--screenshot <png>`: grava a janela depois do primeiro quadro e sai.
+    // `--screenshot <png>`: saves the window after the first frame and exits.
     property string screenshotPath: ""
 
     Inspector { id: inspector }
@@ -35,7 +35,7 @@ ApplicationWindow {
     Timer {
         id: shotTimer
         interval: 300
-        // O `contentItem` da janela não tem engine QML e recusa o `grabToImage`; o `Pane` tem.
+        // The window's `contentItem` has no QML engine and refuses `grabToImage`; the `Pane` has one.
         onTriggered: page.grabToImage(result => {
             result.saveToFile(window.screenshotPath)
             Qt.quit()

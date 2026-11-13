@@ -1,5 +1,5 @@
-//! Resolução da tela emulada: BREW rodou em aparelhos de 128x128 a 240x400, e o jogo costuma ter
-//! sido compilado para um só.
+//! The emulated screen. BREW ran on handsets from 128x128 to 240x400, and a game was usually
+//! built for exactly one of them.
 
 use std::fmt;
 use std::str::FromStr;
@@ -15,8 +15,8 @@ impl Resolution {
         Self { width, height }
     }
 
-    /// As telas mais comuns de aparelhos BREW. A detecção por imagem só aceita estas: uma imagem
-    /// de 100x37 dentro do `.bar` é um botão, não a tela.
+    /// The most common BREW handset screens. Image-based detection only accepts these: a 100x37
+    /// image inside a `.bar` is a button, not the screen.
     pub const PRESETS: [Resolution; 10] = [
         Self::new(128, 128),
         Self::new(128, 160),
@@ -30,21 +30,60 @@ impl Resolution {
         Self::new(240, 400),
     ];
 
-    /// A tela mais frequente entre os aparelhos BREW 2.x/3.x.
+    /// The most frequent screen among BREW 2.x/3.x handsets.
     pub const FALLBACK: Resolution = Self::new(176, 220);
 
     pub fn area(self) -> u32 {
         u32::from(self.width) * u32::from(self.height)
     }
 
-    /// Tamanho plausível para uma tela de celular da época; filtra `1x1` e `1024x768` que
-    /// aparecem por acaso em nomes de arquivo.
+    /// A plausible size for a phone screen of the era; filters out the `1x1` and `1024x768` that
+    /// show up by accident in file names.
     pub fn is_plausible(self) -> bool {
         (96..=480).contains(&self.width) && (96..=480).contains(&self.height)
     }
 
     pub fn is_preset(self) -> bool {
         Self::PRESETS.contains(&self)
+    }
+
+    /// The preset an image of this size was drawn to fill, if any.
+    ///
+    /// Full-screen art is often a few pixels short: the handset keeps the annunciator bar, so a
+    /// 176x220 phone gives the app 176x205..207. The real `roms/` dumps have splash screens of
+    /// 176x205, 176x206, 176x207, 240x298 and 240x378. An image counts for the smallest preset of
+    /// the same width whose height it fills by at least 85%.
+    pub fn screen_for_image(width: u32, height: u32) -> Option<Resolution> {
+        Self::PRESETS
+            .into_iter()
+            .filter(|p| u32::from(p.width) == width)
+            .filter(|p| {
+                let h = u32::from(p.height);
+                height <= h && height * 100 >= h * 85
+            })
+            .min_by_key(|p| p.height)
+    }
+
+    /// The usual screen for a single number in a package name (`Game_176`, `tetris240`).
+    ///
+    /// The number is a width more often than not, but `DragonIsland_320` ships 240x320 art: a
+    /// 320 alone means the portrait 240x320. A landscape game says `320x240` in full.
+    pub fn for_hint(n: u16) -> Option<Resolution> {
+        Some(match n {
+            128 => Self::new(128, 160),
+            132 => Self::new(132, 176),
+            176 | 220 => Self::new(176, 220),
+            208 => Self::new(176, 208),
+            240 | 320 => Self::new(240, 320),
+            400 => Self::new(240, 400),
+            _ => return None,
+        })
+    }
+
+    /// Whether `n` is one of this screen's sides; used to keep image evidence consistent with a
+    /// name hint.
+    pub fn has_side(self, n: u16) -> bool {
+        self.width == n || self.height == n
     }
 }
 
@@ -103,8 +142,8 @@ impl FromStr for ResolutionSelect {
     }
 }
 
-/// Procura `LARGURAxALTURA` num texto qualquer (nome de pasta, de arquivo). Muitos dumps de BREW
-/// carregam a resolução no nome, como `Jogo_176x208.mod`.
+/// Looks for `WIDTHxHEIGHT` in any text (folder or file name). Many BREW dumps carry the
+/// resolution in the name, like `chess_240x320` or `MaximBalls320x240`.
 pub fn find_in_text(text: &str) -> Option<Resolution> {
     let bytes = text.as_bytes();
     for (i, &b) in bytes.iter().enumerate() {
@@ -132,6 +171,15 @@ pub fn find_in_text(text: &str) -> Option<Resolution> {
     None
 }
 
+/// The first standalone number in `text` that [`Resolution::for_hint`] knows: `Game_176`,
+/// `tetris240`, `bowl3d_176only`. Digit runs are taken whole, so `DukeNukem3D_114` gives 3 and
+/// 114, and neither is a screen side.
+pub fn find_hint(text: &str) -> Option<u16> {
+    text.split(|c: char| !c.is_ascii_digit())
+        .filter_map(|run| run.parse::<u16>().ok())
+        .find(|&n| Resolution::for_hint(n).is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,19 +195,51 @@ mod tests {
     #[test]
     fn finds_resolution_in_names() {
         assert_eq!(
-            find_in_text("roms/Jogo_176x208/a.mod"),
+            find_in_text("roms/Game_176x208/a.mod"),
             Some(Resolution::new(176, 208))
         );
         assert_eq!(
             find_in_text("tetris-240X320.mod"),
             Some(Resolution::new(240, 320))
         );
-        // `1x1` não é tela; o próximo candidato no texto é.
+        // `1x1` is not a screen; the next candidate in the text is.
         assert_eq!(
             find_in_text("ico1x1_128x160"),
             Some(Resolution::new(128, 160))
         );
         assert_eq!(find_in_text("xadrez.mod"), None);
         assert_eq!(find_in_text("1024x768"), None);
+    }
+
+    #[test]
+    fn finds_single_number_hints() {
+        assert_eq!(find_hint("SuperDropMania176"), Some(176));
+        assert_eq!(find_hint("bowl3d_176only"), Some(176));
+        assert_eq!(find_hint("DragonIsland_320"), Some(320));
+        assert_eq!(find_hint("DukeNukem3D_114"), None);
+        assert_eq!(find_hint("Millionaire09"), None);
+    }
+
+    #[test]
+    fn near_full_screen_images_map_to_presets() {
+        // Splash sizes measured in the real dumps.
+        assert_eq!(
+            Resolution::screen_for_image(176, 206),
+            Some(Resolution::new(176, 208))
+        );
+        assert_eq!(
+            Resolution::screen_for_image(176, 212),
+            Some(Resolution::new(176, 220))
+        );
+        assert_eq!(
+            Resolution::screen_for_image(240, 298),
+            Some(Resolution::new(240, 320))
+        );
+        assert_eq!(
+            Resolution::screen_for_image(240, 378),
+            Some(Resolution::new(240, 400))
+        );
+        assert_eq!(Resolution::screen_for_image(240, 162), None);
+        assert_eq!(Resolution::screen_for_image(180, 220), None);
     }
 }

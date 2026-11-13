@@ -1,75 +1,90 @@
-# Guia para agentes
+# Guide for agents
 
-## O que é o brewx
+## What brewx is
 
-Emulador de **Qualcomm BREW 1.0 a 3.1**, irmão do [zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu)
-(que é focado no Zeebo, BREW 4.0.2). A emulação é de alto nível, como lá: o jogo é um binário ARM
-que fala com o sistema por tabelas de ponteiros de função, e o que precisa ser fiel é essa
-conversa, não o silício.
+An emulator for **Qualcomm BREW 1.0 to 3.1**, sibling of
+[zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu) (which targets the Zeebo, BREW 4.0.2). The
+emulation is high-level, as there: the game is an ARM binary that talks to the system through
+tables of function pointers, and what has to be faithful is that conversation, not the silicon.
 
-A diferença para o zeebx é que aqui **a versão de BREW e a resolução da tela variam por jogo**:
-cada título foi feito para um aparelho. Por isso as duas são escolhidas antes de abrir o jogo —
-manualmente ou por detecção (`src/detect.rs`, heurísticas em [`docs/deteccao.md`](docs/deteccao.md)).
+The difference from zeebx is that here **the BREW version and the screen resolution vary per
+game**: each title was built for one handset. So both are chosen before the game opens — by hand
+or by detection (`src/detect.rs`, heuristics in [`docs/detection.md`](docs/detection.md)).
 
-## O mapa
+## The map
 
 ```
-Cargo.toml              a biblioteca `brewx` — o emulador inteiro, sem interface
+Cargo.toml              the `brewx` library — the whole emulator, with no interface
 src/
-  version.rs            BrewVersion (1.0…3.1) e VersionSelect (auto/manual)
-  display.rs            Resolution, presets e ResolutionSelect (auto/manual)
-  package.rs            acha .mod/.mif/.bar num caminho; layout Legacy (1.x/2.x) ou Modern (3.x)
-  detect.rs             detecção de versão e resolução, com confiança e evidências
-  images.rs             acha PNG/BMP em bytes quaisquer (para a detecção de resolução)
-  lib.rs                LaunchConfig::resolve e o relatório `describe`
+  version.rs            BrewVersion (1.0…3.1) and VersionSelect (auto/manual)
+  display.rs            Resolution, presets, name hints and ResolutionSelect (auto/manual)
+  package.rs            finds .mod/.mif/.bar under a path; Legacy (flat) or Modern (3.x) layout
+  detect.rs             version and resolution detection, with confidence and evidence
+  images.rs             finds PNG/BMP inside arbitrary bytes (for resolution detection)
+  lib.rs                LaunchConfig::resolve and the `describe` report
 frontends/
-  headless/             `brewx-headless`: linha de comando, sem janela — alvo dos testes
-  qt-standalone/        `brewx-qt`: interface Qt Quick (cxx-qt 0.10, Qt 6)
-roms/                   jogos para teste — no .gitignore, nunca versionar
+  headless/             `brewx-headless`: command line, no window — the test target
+  qt-standalone/        `brewx-qt`: Qt Quick interface (cxx-qt 0.10, Qt 6)
+roms/                   test games — in .gitignore, never commit
 ```
 
-**A plataforma BREW independente de host vem do crate [`zeebx-core`](https://crates.io/crates/zeebx-core)**
-(o mesmo do zeebx-emu): parsers de `.mod`/`.mif`/`.bar`, vtables e trampolins (`brew::aee*`), mapa
-de memória (`layout`), heap, objetos, VFS e formato de save state. Uma correção lá exige publicar
-nova versão do crate; para desenvolver junto, descomente o `[patch.crates-io]` no `Cargo.toml`
-apontando para `../zeebx-core`.
+**The host-independent BREW platform comes from the
+[`zeebx-core`](https://crates.io/crates/zeebx-core) crate** (the same one zeebx-emu uses):
+`.mod`/`.mif`/`.bar` parsers, vtables and trampolines (`brew::aee*`), the memory map (`layout`),
+heap, objects, VFS and the save state format. The heap size is the host's choice
+(`layout::DEFAULT_HEAP_SIZE` is the Zeebo's 64 MiB). A fix there means publishing a new crate
+version; to develop alongside it, uncomment the `[patch.crates-io]` in `Cargo.toml` pointing at
+`../zeebx-core`.
 
-O `zeebx-core` foi extraído de um BREW **4.0.2**: tabelas de interface e o parser de `.mif` refletem
-essa versão. O que mudar entre 1.x, 2.x, 3.x e 4.x fica **neste repositório**, selecionado por
-`BrewVersion` — não faça o core conhecer versões que ele não descreve.
+`zeebx-core` was extracted from a BREW **4.0.2**: its interface tables and `.mif` parser reflect
+that version. Whatever changes between 1.x, 2.x, 3.x and 4.x lives **in this repository**,
+selected by `BrewVersion` — do not teach the core versions it does not describe.
 
-## Regras
+## Test corpus
 
-- Código em inglês (nomes); comentários, docs e strings de UI em português.
-- Comentário explica o **porquê**, nunca o quê.
-- **Toda heurística de detecção vem com evidência legível** (`Detection::evidence`). É o que
-  permite calibrar contra os dumps de `roms/` e o que o usuário vê para decidir se força manual.
-- A biblioteca não sabe de interface. Nada de Qt, janela ou áudio de host em `src/`.
-- Licença **GPL-2.0-or-later**, como o zeebx-emu. Antes de uma dependência nova, confira a licença:
-  nada GPL-2.0-only.
-- Nomes de binário (`brewx-headless`, `brewx-qt`) não mudam depois de publicados.
-
-## Comandos
+`roms/` holds `.rar` archives from archive.org. They are extracted to `roms/_extracted/<name>/`
+(also ignored):
 
 ```bash
-cargo test -p brewx                                   # testes da biblioteca
-cargo build -p brewx-headless                         # CLI
-./target/debug/brewx-headless info roms/<jogo>        # inspeciona e mostra a detecção
-./target/debug/brewx-headless info <caminho> --brew-version 2.1 --resolution 176x208
-
-cargo build -p brewx-standalone-qt                    # interface (Qt 6 via qmake6/qmake/QMAKE)
-./target/debug/brewx-qt [caminho]
-# verificação da interface sem tela:
-QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 ./target/debug/brewx-qt <caminho> --screenshot /tmp/qt.png
+cd roms && for f in *.rar; do mkdir -p "_extracted/${f%.rar}"; unrar x -o+ -inul "$f" "_extracted/${f%.rar}/"; done
 ```
 
-Erros de QML só aparecem em runtime; com `QT_FORCE_STDERR_LOGGING=1` eles vão para o terminal.
-Sem porta/servidor: não há dev server.
+brewx does not open `.rar` itself: the UnRAR license is not GPL-compatible. When changing a
+heuristic, run `brewx-headless info roms/_extracted` before and after and compare.
 
-## Roteiro
+## Rules
 
-1. ~~Estrutura, detecção de versão/resolução, headless `info`, Qt com seletores~~
-2. CPU ARM (dynarmic, como no zeebx-emu) + loader do `.mod` no mapa do `zeebx-core`
-3. Despacho de interfaces por versão (IShell, IDisplay, IGraphics, ISound… de 1.x a 3.x)
-4. `brewx-headless run` com dump de quadro; depois vídeo/entrada/áudio no Qt
-5. Persistência das escolhas por jogo
+- **Code, comments, docs and README in English.** User-facing strings (CLI output, Qt labels,
+  detection evidence) are in Portuguese for now.
+- Comments explain the **why**, never the what.
+- **Every detection heuristic produces readable evidence** (`Detection::evidence`). That is what
+  lets it be calibrated against `roms/` and what the user sees to decide whether to force a value.
+- The library knows nothing about interfaces. No Qt, window or host audio in `src/`.
+- License **GPL-2.0-or-later**, like zeebx-emu. Check the license of any new dependency:
+  nothing GPL-2.0-only.
+- Binary names (`brewx-headless`, `brewx-qt`) do not change once published.
+
+## Commands
+
+```bash
+cargo test -p brewx                                   # library tests
+cargo build -p brewx-headless                         # CLI
+./target/debug/brewx-headless info roms/_extracted    # inspect and show detection
+./target/debug/brewx-headless info <path> --brew-version 2.1 --resolution 176x208
+
+cargo build -p brewx-standalone-qt                    # interface (Qt 6 via qmake6/qmake/QMAKE)
+./target/debug/brewx-qt [path]
+# check the interface without a screen:
+QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 ./target/debug/brewx-qt <path> --screenshot /tmp/qt.png
+```
+
+QML errors only show up at runtime; `QT_FORCE_STDERR_LOGGING=1` sends them to the terminal.
+No ports or dev server.
+
+## Roadmap
+
+1. ~~Structure, version/resolution detection, headless `info`, Qt with selectors~~
+2. ARM CPU (dynarmic, as in zeebx-emu) + loading the `.mod` into the `zeebx-core` memory map
+3. Interface dispatch per version (IShell, IDisplay, IGraphics, ISound… from 1.x to 3.x)
+4. `brewx-headless run` with frame dumps; then video/input/audio in Qt
+5. Per-game persistence of the chosen settings

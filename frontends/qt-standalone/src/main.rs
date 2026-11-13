@@ -1,5 +1,5 @@
-//! brewx-qt — o emulador com a interface Qt Quick. `brewx-qt <caminho>` já abre com o pacote;
-//! `--screenshot <png>` grava a janela e sai.
+//! brewx-qt — the emulator with the Qt Quick interface. `brewx-qt <path>` opens with that
+//! package; `--screenshot <png>` saves the window and exits.
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
@@ -12,12 +12,13 @@ use cxx_qt_lib::{
     QVariant,
 };
 
-/// Nome que o Wayland casa com o `.desktop` instalado para achar o ícone.
+/// The name Wayland matches against the installed `.desktop` to find the icon.
 const APP_ID: &str = "brewx-qt";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    // Sai antes de criar o `QGuiApplication`: prova, sem tela, que o binário acha as libs do Qt.
+    // Exits before creating the `QGuiApplication`: proves, without a screen, that the binary
+    // finds the Qt libraries.
     if args.first().map(String::as_str) == Some("--version") {
         println!("brewx-qt {}", env!("CARGO_PKG_VERSION"));
         return ExitCode::SUCCESS;
@@ -32,8 +33,8 @@ fn main() -> ExitCode {
     app.as_mut().set_application_name(&QString::from("brewx"));
     QGuiApplication::set_desktop_file_name(&QString::from(APP_ID));
 
-    // `--screenshot <png>`: a janela se grava e fecha. Verifica a interface sem olhar a tela, até
-    // com `QT_QPA_PLATFORM=offscreen`.
+    // `--screenshot <png>`: the window saves itself and closes. Checks the interface without
+    // looking at the screen, even with `QT_QPA_PLATFORM=offscreen`.
     let mut screenshot = String::new();
     let mut initial = String::new();
     let mut it = args.iter();
@@ -56,7 +57,7 @@ fn main() -> ExitCode {
     engine.load(&QUrl::from("qrc:/qt/qml/brewx/qml/Main.qml"));
 
     let code = app.exec();
-    // O engine antes da aplicação: os itens QML ainda referenciam o `QGuiApplication`.
+    // The engine before the application: QML items still reference the `QGuiApplication`.
     drop(owned_engine);
     drop(owned_app);
     if code == 0 {

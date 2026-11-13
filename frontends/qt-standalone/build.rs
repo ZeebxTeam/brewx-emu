@@ -1,5 +1,5 @@
-// Os `QObject`s escritos em Rust, a cola C++ e o módulo QML `brewx`. O Qt 6 é achado pelo
-// `qmake6`, `qmake` ou pela variável `QMAKE`.
+// The `QObject`s written in Rust, the C++ glue and the `brewx` QML module. Qt 6 is found through
+// `qmake6`, `qmake` or the `QMAKE` variable.
 fn main() {
     use cxx_qt_build::{CxxQtBuilder, QmlModule};
 
@@ -10,7 +10,7 @@ fn main() {
     )
     .files(["src/bridge.rs"])
     .qt_module("Quick")
-    // O Qt Qml exige o Network no macOS.
+    // Qt Qml requires Network on macOS.
     .qt_module("Network")
     .build();
 }

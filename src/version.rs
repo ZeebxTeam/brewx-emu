@@ -1,10 +1,10 @@
-//! As versões de BREW que o emulador conhece, e a escolha entre detectar ou forçar uma.
+//! The BREW versions the emulator knows, and the choice between detecting or forcing one.
 
 use std::fmt;
 use std::str::FromStr;
 
-/// Uma versão de BREW, até o menor (`3.1.5` vira `3.1`): o patch nunca mudou a ABI das
-/// interfaces que um jogo enxerga.
+/// A BREW version, down to the minor (`3.1.5` becomes `3.1`): a patch release never changed the
+/// ABI of the interfaces a game sees.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BrewVersion {
     V1_0,
@@ -25,8 +25,8 @@ impl BrewVersion {
         Self::V3_1,
     ];
 
-    /// Quando nada no pacote diz a versão. BREW é retrocompatível, então a mais nova roda a
-    /// maioria dos títulos antigos; o contrário quebra assim que o jogo pede uma interface nova.
+    /// When nothing in the package tells the version. BREW is backward compatible, so the newest
+    /// one runs most older titles; the opposite breaks as soon as a game asks for a newer interface.
     pub const FALLBACK: BrewVersion = Self::V3_1;
 
     pub fn major(self) -> u8 {
@@ -75,7 +75,7 @@ impl std::error::Error for ParseVersionError {}
 impl FromStr for BrewVersion {
     type Err = ParseVersionError;
 
-    /// Aceita `3.1`, `3.1.5`, `brew 3.1` e `3` (que vira `3.0`).
+    /// Accepts `3.1`, `3.1.5`, `brew 3.1` and `3` (which becomes `3.0`).
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let err = || ParseVersionError(s.to_owned());
         let trimmed = s.trim().to_ascii_lowercase();
@@ -90,7 +90,7 @@ impl FromStr for BrewVersion {
     }
 }
 
-/// O que o usuário pediu: detectar pelo pacote ou forçar uma versão.
+/// What the user asked for: detect from the package or force a version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum VersionSelect {
     #[default]

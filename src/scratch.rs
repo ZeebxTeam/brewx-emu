@@ -1,4 +1,4 @@
-//! Pasta temporária para os testes, apagada no `Drop`. Evita trazer `tempfile` só para isso.
+//! Temporary folder for tests, removed on `Drop`. Avoids pulling in `tempfile` just for this.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};

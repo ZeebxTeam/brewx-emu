@@ -1,18 +1,18 @@
-# ROMs e dumps para teste — nunca versionar
+# ROMs and dumps for testing — never commit
 roms/
 
 # Rust
 /target/
 
-# cxx-qt-build grava a configuração do language server de QML com o caminho desta máquina.
+# cxx-qt-build writes the QML language server configuration with this machine's path.
 .qmlls.ini
 
-# Editores / SO
+# Editors / OS
 .DS_Store
 .idea/
 .vscode/
 *.swp
 
-# Relatórios e dumps que o emulador escreve
+# Reports and dumps the emulator writes
 *.log
 *.bmp

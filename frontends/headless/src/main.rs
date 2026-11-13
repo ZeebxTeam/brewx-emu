@@ -1,7 +1,7 @@
-//! brewx-headless — o emulador sem janela, para testes e scripts.
+//! brewx-headless — the emulator without a window, for tests and scripts.
 //!
-//! Por enquanto só inspeciona: acha os pacotes e mostra a versão de BREW e a resolução que
-//! seriam usadas. O `run` entra quando houver CPU e despacho de interfaces.
+//! For now it only inspects: it finds the packages and shows the BREW version and resolution
+//! that would be used. `run` comes once there is a CPU and interface dispatch.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
