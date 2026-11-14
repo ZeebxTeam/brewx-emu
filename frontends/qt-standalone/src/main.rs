@@ -1,9 +1,10 @@
 //! brewx-qt — the emulator with the Qt Quick interface. `brewx-qt <path>` opens with that
-//! package; `--screenshot <png>` saves the window and exits.
+//! package; `--screenshot <png>` (with `--screenshot-delay <ms>`) saves the window and exits.
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod bridge;
+mod screen;
 
 use std::process::ExitCode;
 
@@ -36,11 +37,16 @@ fn main() -> ExitCode {
     // `--screenshot <png>`: the window saves itself and closes. Checks the interface without
     // looking at the screen, even with `QT_QPA_PLATFORM=offscreen`.
     let mut screenshot = String::new();
+    let mut screenshot_delay = 300;
     let mut initial = String::new();
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
             "--screenshot" => screenshot = it.next().cloned().unwrap_or_default(),
+            // Milliseconds to let the game run before the capture.
+            "--screenshot-delay" => {
+                screenshot_delay = it.next().and_then(|v| v.parse().ok()).unwrap_or(300)
+            }
             _ => initial = arg.clone(),
         }
     }
@@ -52,6 +58,10 @@ fn main() -> ExitCode {
     properties.insert(
         QString::from("screenshotPath"),
         QVariant::from(&QString::from(&screenshot)),
+    );
+    properties.insert(
+        QString::from("screenshotDelay"),
+        QVariant::from(&screenshot_delay),
     );
     engine.as_mut().set_initial_properties(&properties);
     engine.load(&QUrl::from("qrc:/qt/qml/brewx/qml/Main.qml"));

@@ -5,19 +5,20 @@ import brewx
 
 ApplicationWindow {
     id: window
-    width: 720
-    height: 520
+    width: 900
+    height: 620
     visible: true
     title: "brewx"
 
-    // Path given on the command line (`brewx-qt <path>`).
+    // Path given on the command line (`brewx-qt <path>`): opened right away.
     property string initialPath: ""
-    // `--screenshot <png>`: saves the window after the first frame and exits.
+    // `--screenshot <png>`: saves the window after `screenshotDelay` ms and exits.
     property string screenshotPath: ""
+    property int screenshotDelay: 300
 
     Inspector { id: inspector }
 
-    function refresh() {
+    function inspect() {
         if (pathField.text.length === 0) {
             report.text = "Informe um .mod, .mif ou uma pasta, ou arraste-o para a janela."
             return
@@ -25,16 +26,25 @@ ApplicationWindow {
         report.text = inspector.inspect(pathField.text, versionBox.currentIndex, resolutionBox.currentIndex)
     }
 
+    function openGame() {
+        inspect()
+        screen.open(pathField.text, versionBox.currentIndex, resolutionBox.currentIndex)
+        screen.forceActiveFocus()
+    }
+
     Component.onCompleted: {
         pathField.text = initialPath
-        refresh()
+        if (initialPath.length > 0)
+            openGame()
+        else
+            inspect()
         if (screenshotPath.length > 0)
             shotTimer.start()
     }
 
     Timer {
         id: shotTimer
-        interval: 300
+        interval: window.screenshotDelay
         // The window's `contentItem` has no QML engine and refuses `grabToImage`; the `Pane` has one.
         onTriggered: page.grabToImage(result => {
             result.saveToFile(window.screenshotPath)
@@ -42,12 +52,20 @@ ApplicationWindow {
         })
     }
 
+    // The frontend loop: ~60 steps per second while a game is open.
+    Timer {
+        interval: 16
+        repeat: true
+        running: screen.running
+        onTriggered: screen.tick()
+    }
+
     DropArea {
         anchors.fill: parent
         onDropped: (drop) => {
             if (drop.hasUrls) {
                 pathField.text = decodeURIComponent(drop.urls[0].toString().replace(/^file:\/\//, ""))
-                window.refresh()
+                window.openGame()
             }
         }
     }
@@ -66,41 +84,71 @@ ApplicationWindow {
                     id: pathField
                     Layout.fillWidth: true
                     placeholderText: "Caminho do jogo (.mod, .mif ou pasta)"
-                    onAccepted: window.refresh()
+                    onAccepted: window.openGame()
                 }
-                Button {
-                    text: "Inspecionar"
-                    onClicked: window.refresh()
-                }
-            }
-
-            GridLayout {
-                columns: 2
-                Label { text: "Versão do BREW" }
                 ComboBox {
                     id: versionBox
-                    Layout.preferredWidth: 180
+                    Layout.preferredWidth: 140
                     model: inspector.versionOptions()
-                    onActivated: window.refresh()
+                    onActivated: window.inspect()
                 }
-                Label { text: "Resolução da tela" }
                 ComboBox {
                     id: resolutionBox
-                    Layout.preferredWidth: 180
+                    Layout.preferredWidth: 130
                     model: inspector.resolutionOptions()
-                    onActivated: window.refresh()
+                    onActivated: window.inspect()
+                }
+                Button {
+                    text: "Abrir"
+                    onClicked: window.openGame()
                 }
             }
 
-            ScrollView {
+            RowLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                TextArea {
-                    id: report
-                    readOnly: true
-                    wrapMode: TextEdit.NoWrap
-                    font.family: "monospace"
+                spacing: 8
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: "black"
+
+                    GameScreen {
+                        id: screen
+                        anchors.fill: parent
+                        focus: true
+                        Keys.onPressed: (event) => {
+                            if (!event.isAutoRepeat && screen.keyEvent(event.key, true))
+                                event.accepted = true
+                        }
+                        Keys.onReleased: (event) => {
+                            if (!event.isAutoRepeat && screen.keyEvent(event.key, false))
+                                event.accepted = true
+                        }
+                        TapHandler { onTapped: screen.forceActiveFocus() }
+                    }
                 }
+
+                ScrollView {
+                    Layout.preferredWidth: 320
+                    Layout.fillHeight: true
+                    TextArea {
+                        id: report
+                        readOnly: true
+                        wrapMode: TextEdit.NoWrap
+                        font.family: "monospace"
+                        font.pointSize: 8
+                    }
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                text: screen.status.length > 0
+                      ? screen.status + "   ·   setas, Enter = OK, Backspace = voltar, F1/F2 = soft keys, 0-9 * #"
+                      : "Nenhum jogo aberto"
             }
         }
     }

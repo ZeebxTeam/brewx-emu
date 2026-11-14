@@ -56,21 +56,26 @@ impl qobject::Inspector {
     }
 
     fn inspect(&self, path: &QString, version: i32, resolution: i32) -> QString {
-        // An index outside the list (or 0) is automatic.
-        let pick = |i: i32| usize::try_from(i - 1).ok();
-        let config = LaunchConfig {
-            version: pick(version)
-                .and_then(|i| BrewVersion::ALL.get(i).copied())
-                .map_or(VersionSelect::Auto, VersionSelect::Manual),
-            resolution: pick(resolution)
-                .and_then(|i| Resolution::PRESETS.get(i).copied())
-                .map_or(ResolutionSelect::Auto, ResolutionSelect::Manual),
-        };
+        let config = launch_config(version, resolution);
         let path = std::path::PathBuf::from(path.to_string());
         let report = match brewx::package::discover(&path) {
             Ok(packages) => brewx::describe(&packages, &config),
             Err(e) => format!("erro: {e}"),
         };
         QString::from(&report)
+    }
+}
+
+/// The selectors' indices as a launch configuration. An index outside the list (or 0) is
+/// automatic.
+pub(crate) fn launch_config(version: i32, resolution: i32) -> LaunchConfig {
+    let pick = |i: i32| usize::try_from(i - 1).ok();
+    LaunchConfig {
+        version: pick(version)
+            .and_then(|i| BrewVersion::ALL.get(i).copied())
+            .map_or(VersionSelect::Auto, VersionSelect::Manual),
+        resolution: pick(resolution)
+            .and_then(|i| Resolution::PRESETS.get(i).copied())
+            .map_or(ResolutionSelect::Auto, ResolutionSelect::Manual),
     }
 }
