@@ -21,6 +21,7 @@ src/
   package.rs            finds .mod/.mif/.bar under a path; Legacy (flat) or Modern (3.x) layout
   detect.rs             version and resolution detection, with confidence and evidence
   images.rs             finds PNG/BMP inside arbitrary bytes (for resolution detection)
+  library.rs            the game list for frontends: applets under a folder, title, .mif icon
   cpu/                  CpuBackend, region-based GuestMemory, Dynarmic backend (from zeebx-emu)
   loader.rs             guest memory map, AEESTDLIB_VER detection
   video.rs              framebuffer, 2D primitives, BMP/PNG decoding, built-in 8x8 font

@@ -95,6 +95,16 @@ const TRANSPARENT_KEY: u32 = 0x00ff_00ff;
 
 impl Image {
     /// PNG or Windows BMP, by signature. BREW's own BCI is not decoded yet.
+    /// PNG with alpha, for frontends that show the image outside the emulated screen.
+    pub fn to_png(&self) -> Vec<u8> {
+        let rgba: Vec<u8> = self
+            .pixels
+            .iter()
+            .flat_map(|&p| [(p >> 16) as u8, (p >> 8) as u8, p as u8, (p >> 24) as u8])
+            .collect();
+        encode_png(self.width, self.height, &rgba)
+    }
+
     pub fn decode(data: &[u8]) -> Option<Rc<Image>> {
         if data.starts_with(b"\x89PNG") {
             decode_png(data)
@@ -480,15 +490,19 @@ impl Framebuffer {
     }
 
     pub fn to_png(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        let mut encoder = png::Encoder::new(&mut out, self.width, self.height);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        if let Ok(mut writer) = encoder.write_header() {
-            let _ = writer.write_image_data(&self.to_rgba());
-        }
-        out
+        encode_png(self.width, self.height, &self.to_rgba())
     }
+}
+
+fn encode_png(width: u32, height: u32, rgba: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, width, height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    if let Ok(mut writer) = encoder.write_header() {
+        let _ = writer.write_image_data(rgba);
+    }
+    out
 }
 
 pub fn text_width(text: &str) -> i32 {

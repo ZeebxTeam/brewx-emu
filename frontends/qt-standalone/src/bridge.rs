@@ -28,8 +28,16 @@ pub mod qobject {
         /// Report of the packages at `path` with the chosen configuration. Index 0 is automatic.
         #[qinvokable]
         fn inspect(self: &Inspector, path: &QString, version: i32, resolution: i32) -> QString;
+
+        /// The games under `folder` as a JSON array of `{ title, path, icon }`; `icon` is a
+        /// `file://` URL or empty.
+        #[qinvokable]
+        fn scan(self: &Inspector, folder: &QString) -> QString;
     }
 }
+
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::path::PathBuf;
 
 use cxx_qt_lib::{QString, QStringList};
 
@@ -57,13 +65,62 @@ impl qobject::Inspector {
 
     fn inspect(&self, path: &QString, version: i32, resolution: i32) -> QString {
         let config = launch_config(version, resolution);
-        let path = std::path::PathBuf::from(path.to_string());
+        let path = PathBuf::from(path.to_string());
         let report = match brewx::package::discover(&path) {
             Ok(packages) => brewx::describe(&packages, &config),
             Err(e) => format!("erro: {e}"),
         };
         QString::from(&report)
     }
+
+    fn scan(&self, folder: &QString) -> QString {
+        let folder = PathBuf::from(folder.to_string());
+        let Ok(entries) = brewx::library::scan(&folder) else {
+            return QString::from("[]");
+        };
+        let items: Vec<String> = entries
+            .iter()
+            .map(|e| {
+                format!(
+                    "{{\"title\":{},\"path\":{},\"icon\":{}}}",
+                    json_string(&e.title),
+                    json_string(&e.package.module.to_string_lossy()),
+                    json_string(&icon_url(e).unwrap_or_default()),
+                )
+            })
+            .collect();
+        QString::from(&format!("[{}]", items.join(",")))
+    }
+}
+
+/// Where the icons go: regenerated on every scan, so a temporary folder is enough.
+fn icon_dir() -> PathBuf {
+    std::env::temp_dir().join("brewx-icons")
+}
+
+fn icon_url(entry: &brewx::library::Entry) -> Option<String> {
+    let icon = entry.icon.as_ref()?;
+    let mut hasher = DefaultHasher::new();
+    entry.package.module.hash(&mut hasher);
+    let dir = icon_dir();
+    std::fs::create_dir_all(&dir).ok()?;
+    let file = dir.join(format!("{:016x}.png", hasher.finish()));
+    std::fs::write(&file, icon.to_png()).ok()?;
+    Some(format!("file://{}", file.display()))
+}
+
+fn json_string(s: &str) -> String {
+    let mut out = String::from("\"");
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
 /// The selectors' indices as a launch configuration. An index outside the list (or 0) is

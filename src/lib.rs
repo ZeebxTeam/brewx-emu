@@ -8,6 +8,7 @@ pub mod cpu;
 pub mod detect;
 pub mod display;
 pub mod images;
+pub mod library;
 pub mod loader;
 pub mod machine;
 pub mod package;

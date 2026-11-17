@@ -32,6 +32,8 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     app.as_mut().set_application_name(&QString::from("brewx"));
+    // `Settings` in QML keys the file by organization and application.
+    app.as_mut().set_organization_name(&QString::from("brewx"));
     QGuiApplication::set_desktop_file_name(&QString::from(APP_ID));
 
     // `--screenshot <png>`: the window saves itself and closes. Checks the interface without

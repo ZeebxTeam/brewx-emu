@@ -1,12 +1,14 @@
+import QtCore
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import brewx
 
 ApplicationWindow {
     id: window
-    width: 900
-    height: 620
+    width: 1200
+    height: 680
     visible: true
     title: "brewx"
 
@@ -17,6 +19,30 @@ ApplicationWindow {
     property int screenshotDelay: 300
 
     Inspector { id: inspector }
+
+    // The ROM folder survives between sessions (~/.config/brewx/brewx.conf on Linux).
+    Settings {
+        id: settings
+        property string romsFolder: ""
+    }
+
+    function scanRoms() {
+        games.model = settings.romsFolder.length > 0
+                ? JSON.parse(inspector.scan(settings.romsFolder))
+                : []
+    }
+
+    function setRomsFolder(folder) {
+        settings.romsFolder = folder
+        scanRoms()
+    }
+
+    FolderDialog {
+        id: folderDialog
+        title: "Pasta de ROMs"
+        currentFolder: settings.romsFolder.length > 0 ? "file://" + settings.romsFolder : ""
+        onAccepted: window.setRomsFolder(decodeURIComponent(selectedFolder.toString().replace(/^file:\/\//, "")))
+    }
 
     function inspect() {
         if (pathField.text.length === 0) {
@@ -33,6 +59,7 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        scanRoms()
         pathField.text = initialPath
         if (initialPath.length > 0)
             openGame()
@@ -108,6 +135,78 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 spacing: 8
+
+                ColumnLayout {
+                    Layout.preferredWidth: 240
+                    Layout.maximumWidth: 240
+                    Layout.fillHeight: true
+                    spacing: 4
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        TextField {
+                            id: romsField
+                            Layout.fillWidth: true
+                            placeholderText: "Pasta de ROMs"
+                            text: settings.romsFolder
+                            onAccepted: window.setRomsFolder(text)
+                        }
+                        Button {
+                            text: "…"
+                            implicitWidth: 32
+                            onClicked: folderDialog.open()
+                        }
+                    }
+
+                    Label {
+                        Layout.fillWidth: true
+                        font.pointSize: 8
+                        opacity: 0.7
+                        text: games.count + " jogo(s)"
+                    }
+
+                    ListView {
+                        id: games
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        model: []
+                        ScrollBar.vertical: ScrollBar {}
+
+                        delegate: ItemDelegate {
+                            required property var modelData
+                            width: ListView.view.width
+                            highlighted: pathField.text === modelData.path
+                            contentItem: RowLayout {
+                                spacing: 8
+                                Image {
+                                    Layout.preferredWidth: 32
+                                    Layout.preferredHeight: 32
+                                    source: modelData.icon
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: false
+                                    asynchronous: true
+                                    // Sem ícone: a inicial do título.
+                                    Label {
+                                        anchors.centerIn: parent
+                                        visible: parent.status !== Image.Ready
+                                        text: modelData.title.charAt(0).toUpperCase()
+                                        font.bold: true
+                                    }
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    text: modelData.title
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            onClicked: {
+                                pathField.text = modelData.path
+                                window.openGame()
+                            }
+                        }
+                    }
+                }
 
                 Rectangle {
                     Layout.fillWidth: true
