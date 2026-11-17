@@ -1,5 +1,7 @@
 # brewx
 
+![Status: Still In Early Development](https://img.shields.io/badge/status-still%20in%20early%20development-orange)
+
 An emulator for **Qualcomm BREW 1.0 to 3.1** feature-phone applications, written in Rust. It is
 the sibling of [zeebx-emu](https://github.com/ZeebxTeam/zeebx-emu) — which emulates the Zeebo
 (BREW 4.0.2) — and is built on the same platform core, the
